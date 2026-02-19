@@ -1,22 +1,55 @@
+version: "3.9"
+
 services:
+
   db:
     image: postgres:15
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7
+    restart: always
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: "change-me"
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+    command: migrate --noinput
+    restart: "no"
+
   web:
     build:
-      context: ../..
+      context: .
+      dockerfile: docker/Dockerfile
     volumes:
-      - ../../:/app
+      - .:/app
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      - migrate
     environment:
       DEBUG: "True"
       SECRET_KEY: "change-me"
@@ -26,3 +59,7 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
+    command: runserver 0.0.0.0:8000
+
+volumes:
+  postgres_data:

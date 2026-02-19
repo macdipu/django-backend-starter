@@ -1,19 +1,30 @@
-.PHONY: up down migrate shell logs test
+COMPOSE = docker compose -f docker/compose/local.yml
+
+.PHONY: up down rebuild migrate shell logs test superuser clean
 
 up:
-	docker compose -f docker/compose/local.yml up --build
+	$(COMPOSE) up --build
 
 down:
-	docker compose -f docker/compose/local.yml down
+	$(COMPOSE) down
+
+rebuild:
+	$(COMPOSE) build --no-cache
 
 migrate:
-	docker compose -f docker/compose/local.yml exec web python manage.py migrate
+	$(COMPOSE) run --rm web python manage.py migrate
 
 shell:
-	docker compose -f docker/compose/local.yml exec web python manage.py shell
+	$(COMPOSE) run --rm web python manage.py shell
 
 logs:
-	docker compose -f docker/compose/local.yml logs -f
+	$(COMPOSE) logs -f
 
 test:
-	docker compose -f docker/compose/local.yml exec web pytest
+	$(COMPOSE) run --rm web pytest
+
+superuser:
+	$(COMPOSE) run --rm web python manage.py createsuperuser
+
+clean:
+	$(COMPOSE) down -v
