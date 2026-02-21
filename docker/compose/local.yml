@@ -1,10 +1,8 @@
-version: "3.9"
-
 services:
 
   db:
     image: postgres:15
-    restart: always
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -19,12 +17,12 @@ services:
 
   redis:
     image: redis:7
-    restart: always
+    restart: unless-stopped
 
   migrate:
     build:
-      context: .
-      dockerfile: docker/Dockerfile
+      context: ../../
+      dockerfile: Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -37,19 +35,20 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
-    command: migrate --noinput
+    command: python manage.py migrate --noinput
     restart: "no"
 
   web:
     build:
-      context: .
-      dockerfile: docker/Dockerfile
+      context: ../../
+      dockerfile: Dockerfile
     volumes:
-      - .:/app
+      - ../../:/app
     ports:
       - "8000:8000"
     depends_on:
-      - migrate
+      migrate:
+        condition: service_completed_successfully
     environment:
       DEBUG: "True"
       SECRET_KEY: "change-me"
@@ -59,7 +58,8 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
-    command: runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
 
 volumes:
   postgres_data:
